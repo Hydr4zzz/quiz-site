@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Quiz Mania!</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Comic Sans MS', cursive;
+      background: radial-gradient(circle, #4b0082, #000);
+      color: white;
+      overflow-x: hidden;
+    }
+    #app {
+      text-align: center;
+      padding: 20px;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 10px;
+      font-size: 18px;
+      background: #ff6600;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      color: white;
+      transition: transform 0.2s, background 0.2s;
+    }
+    button:hover {
+      background: #ff8800;
+      transform: scale(1.05);
+    }
+    #quizzes-list {
+      margin-top: 20px;
+    }
+    .quiz-item {
+      margin: 10px 0;
+    }
+    #victory-screen {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      color: #00ffcc;
+      font-size: 36px;
+      z-index: 2;
+    }
+    input, textarea {
+      padding: 10px;
+      font-size: 16px;
+      margin: 5px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <h1>🎉 Quiz Mania!</h1>
+    <div id="login-screen">
+      <p>Digite seu nome de usuário:</p>
+      <input id="username-input" placeholder="Seu nome..." />
+      <button onclick="setUsername()">Entrar</button>
+    </div>
+
+    <div id="menu" style="display:none;">
+      <p id="welcome-user"></p>
+      <button onclick="showQuizzes()">Jogar Quizzes</button>
+      <button onclick="createQuiz()">Criar Quiz</button>
+      <button onclick="loadUserQuizzes()">Meus Quizzes</button>
+      <button onclick="changeUser()">Trocar Usuário</button>
+    </div>
+
+    <div id="quiz-creator" style="display:none;"></div>
+    <div id="quizzes-list"></div>
+    <div id="quiz-game" style="display:none;"></div>
+  </div>
+
+  <div id="victory-screen">
+    <div>🎉 Você Venceu! 🎉</div>
+    <button onclick="returnToMenu()">Voltar ao menu</button>
+  </div>
+
+  <audio id="click-sound" src="https://www.myinstants.com/media/sounds/minecraft-click.mp3"></audio>
+  <audio id="bg-music" src="https://cdn.pixabay.com/download/audio/2022/03/28/audio_c2163497f1.mp3?filename=arcade-hero-10959.mp3" loop autoplay></audio>
+
+  <script>
+    const clickSound = document.getElementById("click-sound");
+    const bgMusic = document.getElementById("bg-music");
+
+    let quizzes = JSON.parse(localStorage.getItem("quizzes") || "[]");
+    let currentUser = localStorage.getItem("username") || null;
+    let creatingQuiz = { title: "", questions: [], creator: "" };
+    let currentQuiz = null;
+    let currentQuestionIndex = 0;
+
+    if (currentUser) showMenu();
+
+    function playClick() {
+      clickSound.currentTime = 0;
+      clickSound.play();
+    }
+
+    function setUsername() {
+      playClick();
+      const input = document.getElementById("username-input");
+      currentUser = input.value.trim();
+      if (currentUser) {
+        localStorage.setItem("username", currentUser);
+        showMenu();
+      }
+    }
+
+    function showMenu() {
+      document.getElementById("login-screen").style.display = "none";
+      document.getElementById("menu").style.display = "block";
+      document.getElementById("welcome-user").textContent = `Olá, ${currentUser}!`;
+      document.getElementById("quizzes-list").innerHTML = "";
+      document.getElementById("quiz-creator").style.display = "none";
+      document.getElementById("quiz-game").style.display = "none";
+    }
+
+    function changeUser() {
+      playClick();
+      localStorage.removeItem("username");
+      location.reload();
+    }
+
+    function showQuizzes() {
+      playClick();
+      document.getElementById("quizzes-list").innerHTML = "<h2>Todos os Quizzes:</h2>";
+      quizzes.forEach((quiz, index) => {
+        const btn = document.createElement("button");
+        btn.textContent = quiz.title;
+        btn.onclick = () => startQuiz(index);
+        document.getElementById("quizzes-list").appendChild(btn);
+      });
+    }
+
+    function loadUserQuizzes() {
+      playClick();
+      document.getElementById("quizzes-list").innerHTML = "<h2>Seus Quizzes:</h2>";
+      quizzes.forEach((quiz, index) => {
+        if (quiz.creator === currentUser) {
+          const btn = document.createElement("button");
+          btn.textContent = quiz.title;
+          btn.onclick = () => startQuiz(index);
+          document.getElementById("quizzes-list").appendChild(btn);
+        }
+      });
+    }
+
+    function createQuiz() {
+      playClick();
+      creatingQuiz = { title: "", questions: [], creator: currentUser };
+      const container = document.getElementById("quiz-creator");
+      container.innerHTML = `
+        <h2>Criar Quiz</h2>
+        <input id="quiz-title" placeholder="Título do quiz"/><br><br>
+        <div id="question-container"></div>
+        <button onclick="addQuestion()">Adicionar Pergunta</button>
+        <button onclick="finalizeQuiz()">Finalizar Quiz</button>
+      `;
+      container.style.display = "block";
+      document.getElementById("quizzes-list").innerHTML = "";
+    }
+
+    function addQuestion() {
+      playClick();
+      const container = document.getElementById("question-container");
+      const qIndex = creatingQuiz.questions.length;
+      const qDiv = document.createElement("div");
+      qDiv.innerHTML = `
+        <h3>Pergunta ${qIndex + 1}</h3>
+        <input placeholder="Pergunta..." id="q-${qIndex}"><br>
+        ${[0,1,2,3].map(i => `<input placeholder="Resposta ${i+1}" id="q-${qIndex}-a${i}">
+        <input type="radio" name="q-${qIndex}-correct" value="${i}">`).join("<br>")}<hr>
+      `;
+      container.appendChild(qDiv);
+      creatingQuiz.questions.push({});
+    }
+
+    function finalizeQuiz() {
+      playClick();
+      const title = document.getElementById("quiz-title").value.trim();
+      if (!title) return alert("Dê um título ao quiz!");
+
+      const questions = [];
+      for (let i = 0; i < creatingQuiz.questions.length; i++) {
+        const question = document.getElementById(`q-${i}`).value.trim();
+        const answers = [];
+        for (let j = 0; j < 4; j++) {
+          answers.push(document.getElementById(`q-${i}-a${j}`).value.trim());
+        }
+        const correct = document.querySelector(`input[name="q-${i}-correct"]:checked`);
+        if (!question || answers.includes("") || !correct) {
+          return alert(`Complete corretamente a pergunta ${i + 1}`);
+        }
+        questions.push({
+          question, answers, correct: parseInt(correct.value)
+        });
+      }
+
+      creatingQuiz.title = title;
+      creatingQuiz.questions = questions;
+      quizzes.push(creatingQuiz);
+      localStorage.setItem("quizzes", JSON.stringify(quizzes));
+      alert("Quiz salvo com sucesso!");
+      showMenu();
+    }
+
+    function startQuiz(index) {
+      playClick();
+      currentQuiz = quizzes[index];
+      currentQuestionIndex = 0;
+      document.getElementById("quiz-game").style.display = "block";
+      document.getElementById("quizzes-list").innerHTML = "";
+      showQuestion();
+    }
+
+    function showQuestion() {
+      const quiz = currentQuiz;
+      const questionObj = quiz.questions[currentQuestionIndex];
+      const container = document.getElementById("quiz-game");
+      container.innerHTML = `
+        <h2>${questionObj.question}</h2>
+        ${questionObj.answers.map((ans, i) =>
+          `<button onclick="answerQuestion(${i})">${ans}</button>`).join("")}
+      `;
+    }
+
+    function answerQuestion(choice) {
+      playClick();
+      if (choice === currentQuiz.questions[currentQuestionIndex].correct) {
+        currentQuestionIndex++;
+        if (currentQuestionIndex >= currentQuiz.questions.length) {
+          document.getElementById("victory-screen").style.display = "flex";
+        } else {
+          showQuestion();
+        }
+      } else {
+        alert("Errou! Tente de novo!");
+        showMenu();
+      }
+    }
+
+    function returnToMenu() {
+      document.getElementById("victory-screen").style.display = "none";
+      showMenu();
+    }
+  </script>
+</body>
+</html>
