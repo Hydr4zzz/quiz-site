@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quiz Mania!</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Comic Sans MS', cursive;
+      background: radial-gradient(circle, #4b0082, #000);
+      overflow: hidden;
+      color: white;
+    }
+    #app {
+      text-align: center;
+      margin-top: 50px;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 10px;
+      font-size: 18px;
+      background: #ff6600;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      color: white;
+      transition: transform 0.2s, background 0.2s;
+    }
+    button:hover {
+      background: #ff8800;
+      transform: scale(1.1);
+    }
+    button:active {
+      transform: scale(0.95);
+    }
+    #score-board {
+      margin-top: 20px;
+      font-size: 24px;
+      color: #00ffcc;
+    }
+    #timer {
+      font-size: 20px;
+      color: #ffcc00;
+      margin-top: 10px;
+    }
+    #quizzes-list {
+      margin-top: 20px;
+      font-size: 24px;
+      color: #ffcc00;
+    }
+    #victory-screen {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      color: #00ffcc;
+      font-size: 36px;
+      z-index: 2;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <h1>🎉 Quiz Mania!</h1>
+    <button onclick="startGame()">Jogar</button>
+    <button onclick="createQuiz()">Criar Quiz</button>
+    <button onclick="loadQuizzes()">Ver Quizzes</button>
+
+    <div id="score-board"></div>
+    <div id="timer"></div>
+    <div id="quizzes-list"></div>
+  </div>
+
+  <div id="victory-screen">
+    <div>🎉 Você Venceu! 🎉</div>
+    <button onclick="location.reload()">Voltar ao menu</button>
+  </div>
+
+  <audio id="click-sound" src="https://www.myinstants.com/media/sounds/minecraft-click.mp3"></audio>
+  <audio id="bg-music" src="https://cdn.pixabay.com/download/audio/2022/03/28/audio_c2163497f1.mp3?filename=arcade-hero-10959.mp3" loop autoplay></audio>
+
+  <script>
+    // Funções de som
+    function playClickSound() {
+      document.getElementById('click-sound').play();
+    }
+
+    // Variáveis de jogo
+    let score = 0;
+    let timeLeft = 15;
+    let timerInterval;
+    let userName = localStorage.getItem('userName') || prompt('Digite seu nome de usuário:');
+    localStorage.setItem('userName', userName);
+    let userScore = JSON.parse(localStorage.getItem(userName)) || 0;
+    let quizzes = JSON.parse(localStorage.getItem('quizzes')) || [];
+
+    // Função para começar o jogo
+    function startGame() {
+      playClickSound();
+      score = 0;
+      updateScore();
+      startTimer();
+      // Simulação de pontuação (apenas para testar)
+      const interval = setInterval(() => {
+        score++;
+        updateScore();
+        if (score >= 5) {
+          clearInterval(interval);
+          userScore = score;
+          localStorage.setItem(userName, JSON.stringify(userScore));
+          showVictory();
+        }
+      }, 2000);
+    }
+
+    // Atualizar pontuação
+    function updateScore() {
+      document.getElementById("score-board").textContent = `Pontuação: ${score}`;
+    }
+
+    // Iniciar o timer
+    function startTimer() {
+      clearInterval(timerInterval);
+      timeLeft = 15;
+      document.getElementById("timer").textContent = `Tempo: ${timeLeft}s`;
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        document.getElementById("timer").textContent = `Tempo: ${timeLeft}s`;
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          alert("Tempo esgotado!");
+        }
+      }, 1000);
+    }
+
+    // Exibir a tela de vitória
+    function showVictory() {
+      document.getElementById("victory-screen").style.display = "flex";
+    }
+
+    // Criar novo quiz
+    function createQuiz() {
+      playClickSound();
+      let quizTitle = prompt('Qual o nome do seu quiz?');
+      let questions = [];
+      for (let i = 0; i < 10; i++) {
+        let questionText = prompt(`Digite a pergunta ${i+1}`);
+        let answers = [];
+        for (let j = 0; j < 4; j++) {
+          answers.push(prompt(`Resposta ${j+1}`));
+        }
+        let correctAnswer = prompt('Qual é a resposta correta? (1-4)');
+        questions.push({ questionText, answers, correctAnswer: correctAnswer - 1 });
+      }
+      quizzes.push({ quizTitle, questions });
+      localStorage.setItem('quizzes', JSON.stringify(quizzes));
+      alert('Quiz criado com sucesso!');
+    }
+
+    // Carregar quizzes
+    function loadQuizzes() {
+      const quizzesDiv = document.getElementById('quizzes-list');
+      quizzesDiv.innerHTML = '<h2>Seus Quizes</h2>';
+      quizzes.forEach((quiz, index) => {
+        quizzesDiv.innerHTML += `<p><button onclick='playQuiz(${index})'>${quiz.quizTitle}</button></p>`;
+      });
+    }
+
+    // Jogar um quiz
+    function playQuiz(quizIndex) {
+      let selectedQuiz = quizzes[quizIndex];
+      let userAnswers = [];
+      selectedQuiz.questions.forEach((q, i) => {
+        let answer = prompt(`${q.questionText}\n${q.answers.join('\n')}`);
+        userAnswers.push(parseInt(answer) - 1 === q.correctAnswer ? 1 : 0);
+      });
+      let score = userAnswers.reduce((total, num) => total + num, 0);
+      alert(`Você acertou ${score} de ${selectedQuiz.questions.length} perguntas!`);
+    }
+
+    // Carregar quizzes ao iniciar a página
+    window.onload = function() {
+      loadQuizzes();
+    }
+  </script>
+</body>
+</html>
